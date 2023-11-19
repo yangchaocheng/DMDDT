@@ -1,246 +1,58 @@
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 import os
 import numpy as np
 import torch
 import random
-from sklearn.metrics import mean_squared_error
-
-
-# def adjust_mask_based_on_confidence(y_true, y_pred, threshold=0):
-#     # 计算均方误差
-#     criterion = nn.MSELoss(reduction='none')
-#     mse = criterion(y_true, y_pred)
-#
-#     # 根据均方误差计算置信度分数
-#     confidence_score = 1.0 / (1.0 + mse)
-#
-#     # threshold需要动态，可根据计算出来的confidence，然后取前90%设为True
-#     # 获取每个batch和dim中的最高90%置信度分数的阈值
-#     batch_size, dim, seq_length = confidence_score.shape
-#
-#     # 将置信度分数重新形状为一维数组
-#     flat_scores = confidence_score.reshape(-1, seq_length)
-#
-#     # 对每个batch和dim中的分数排序
-#     sorted_scores, _ = torch.sort(flat_scores, descending=True, dim=1)
-#
-#     # 计算每个batch和dim的阈值，取最高90%的分数
-#     threshold_index = int(0.95 * seq_length)
-#     threshold_values = sorted_scores[:, threshold_index].view(batch_size, dim, 1)
-#
-#     # 使用阈值生成掩码
-#     mask = confidence_score > threshold_values
-#     # 在第三个维度上设置邻居，但不超出原始维度大小
-#     expanded_mask = mask.clone()
-#     mask_scale = 10
-#     for i in range(1, mask_scale + 1):
-#         expanded_mask[:, :, i:] &= mask[:, :, :-i]
-#         expanded_mask[:, :, :-i] &= mask[:, :, i:]
-#
-#     return expanded_mask
 
 
 def adjust_mask_based_on_confidence(y_true, y_pred, threshold=0, gradient_threshold=0.1):
     criterion = nn.MSELoss(reduction='none')
     mse = criterion(y_true, y_pred)
 
-    # 根据均方误差计算置信度分数
     confidence_score = 1.0 / (1.0 + mse)
 
-    # threshold需要动态，可根据计算出来的confidence，然后取前90%设为True
     batch_size, dim, seq_length = confidence_score.shape
 
-    # 将置信度分数重新形状为一维数组
     flat_scores = confidence_score.reshape(-1, seq_length)
 
-    # 对每个batch和dim中的分数排序
     sorted_scores, _ = torch.sort(flat_scores, descending=True, dim=1)
 
-    # 计算每个batch和dim的阈值，取最高90%的分数
     threshold_index = int(0.95 * seq_length)
     threshold_values = sorted_scores[:, threshold_index].view(batch_size, dim, 1)
 
-    # 使用阈值生成掩码
     mask = confidence_score > threshold_values
 
-    # 计算梯度
     gradients = torch.autograd.grad(confidence_score.sum(), y_pred, create_graph=True)[0]
 
-    # 根据每个点的梯度幅值来动态确定 mask_scale
     dynamic_mask_scale = torch.abs(gradients) / gradient_threshold
     dynamic_mask_scale = dynamic_mask_scale.clamp_min(1).int()  # 最小值为1，确保至少为1
 
-    # 计算需要更新的位置索引
     update_indices = torch.nonzero(~mask, as_tuple=False)
 
-    # 获取需要更新的值
     v = dynamic_mask_scale[update_indices[:, 0], update_indices[:, 1], update_indices[:, 2]]
 
-    # 将前 v 个节点设置为 False
-    expanded_mask = mask.clone()
-
-    # Broadcasting to update the mask without a for loop
     start_idx = torch.clamp(update_indices[:, 2] - v, min=0).long()
     end_idx = torch.min(torch.tensor(seq_length), update_indices[:, 2] + 1 + v).long()
 
-    # Create index tensors using torch.arange
     index_range = torch.arange(seq_length, device=mask.device).view(1, 1, -1)
 
-    # Update the mask using element-wise comparison
     mask_update = ~((index_range >= start_idx.view(-1, 1, 1)) & (index_range < end_idx.view(-1, 1, 1)))
     unique_indices, inverse_indices = torch.unique(update_indices[:, :2], return_inverse=True, dim=0)
 
-    # 初始化结果张量
     result_tensor = torch.zeros((batch_size, dim, seq_length), dtype=mask_update.dtype, device=mask.device)
 
-    # 遍历每个唯一的索引组合
     for i in range(unique_indices.shape[0]):
-        # 找到在 update_indices 中对应的索引
         indices = torch.nonzero((update_indices[:, :2] == unique_indices[i]).all(dim=1)).squeeze()
 
-        # 使用这些索引在 a 中取值并相乘
         product = torch.prod(mask_update[indices], dim=0)
 
-        # 将结果存储到对应位置
         result_tensor[unique_indices[i, 0], unique_indices[i, 1], :] = product
 
     expanded_mask = result_tensor
 
     return expanded_mask
 
-# def adjust_mask_based_on_confidence(y_true, y_pred, threshold=0, gradient_threshold=0.1):
-#     criterion = nn.MSELoss(reduction='none')
-#     mse = criterion(y_true, y_pred)
-#
-#     # 根据均方误差计算置信度分数
-#     confidence_score = 1.0 / (1.0 + mse)
-#
-#     # threshold需要动态，可根据计算出来的confidence，然后取前90%设为True
-#     batch_size, dim, seq_length = confidence_score.shape
-#
-#     # 将置信度分数重新形状为一维数组
-#     flat_scores = confidence_score.reshape(-1, seq_length)
-#
-#     # 对每个batch和dim中的分数排序
-#     sorted_scores, _ = torch.sort(flat_scores, descending=True, dim=1)
-#
-#     # 计算每个batch和dim的阈值，取最高90%的分数
-#     threshold_index = int(0.95 * seq_length)
-#     threshold_values = sorted_scores[:, threshold_index].view(batch_size, dim, 1)
-#
-#     # 使用阈值生成掩码
-#     mask = confidence_score > threshold_values
-#
-#     # 计算梯度
-#     gradients = torch.autograd.grad(confidence_score.sum(), y_pred, create_graph=True)[0]
-#
-#     # 根据每个点的梯度幅值来动态确定mask_scale
-#     dynamic_mask_scale = torch.abs(gradients) / gradient_threshold
-#     dynamic_mask_scale = dynamic_mask_scale.clamp_min(1).int()  # 最小值为1，确保至少为1
-#
-#     need_mask = ~mask * dynamic_mask_scale
-#
-#     # 在第三个维度上设置邻居，但不超出原始维度大小
-#     expanded_mask = mask.clone()
-#
-#     # 生成需要更新的位置索引
-#     update_indices = torch.nonzero(~mask, as_tuple=False)
-#
-#     # 获取需要更新的节点的值
-#     v_values = need_mask[update_indices[:, 0], update_indices[:, 1], update_indices[:, 2]]
-#
-#     # 计算前 v 个节点和后 v 个节点的范围
-#     zero_tensor = torch.tensor(0, device=mask.device)
-#     start_indices = torch.maximum(zero_tensor, update_indices[:, 2] - v_values)
-#     max_length = torch.tensor(seq_length, device=mask.device)
-#     end_indices = torch.minimum(max_length, update_indices[:, 2] + v_values)
-#
-#     # 生成对应的索引，并转换为 LongTensor
-#     # row_indices = torch.arange(len(update_indices)).to(mask.device)
-#
-#     row_indices = torch.arange(len(update_indices)).to(torch.long).to(mask.device)
-#     start_indices_indices = torch.stack([row_indices, start_indices], dim=1)
-#     end_indices_indices = torch.stack([row_indices, update_indices[:, 2]], dim=1)
-#
-#     # 将相应范围的节点设置为 False
-#     expanded_mask[start_indices_indices[:, 0], update_indices[:, 1],
-#     start_indices_indices[:, 1]:end_indices_indices[:, 1]] = False
-#     expanded_mask[end_indices_indices[:, 0], update_indices[:, 1], end_indices_indices[:, 1]:end_indices] = False
-#
-#     return expanded_mask
-
-# def adjust_mask_based_on_confidence(y_true, y_pred, threshold=0, gradient_threshold=0.1):
-#     criterion = nn.MSELoss(reduction='none')
-#     mse = criterion(y_true, y_pred)
-#
-#     # 根据均方误差计算置信度分数
-#     confidence_score = 1.0 / (1.0 + mse)
-#
-#     # threshold需要动态，可根据计算出来的confidence，然后取前90%设为True
-#     batch_size, dim, seq_length = confidence_score.shape
-#
-#     # 将置信度分数重新形状为一维数组
-#     flat_scores = confidence_score.reshape(-1, seq_length)
-#
-#     # 对每个batch和dim中的分数排序
-#     sorted_scores, _ = torch.sort(flat_scores, descending=True, dim=1)
-#
-#     # 计算每个batch和dim的阈值，取最高90%的分数
-#     threshold_index = int(0.95 * seq_length)
-#     threshold_values = sorted_scores[:, threshold_index].view(batch_size, dim, 1)
-#
-#     # 使用阈值生成掩码
-#     mask = confidence_score > threshold_values
-#
-#     # 计算梯度
-#     gradients = torch.autograd.grad(confidence_score.sum(), y_pred, create_graph=True)[0]
-#
-#     # 根据每个点的梯度幅值来动态确定 mask_scale
-#     dynamic_mask_scale = torch.abs(gradients) / gradient_threshold
-#     dynamic_mask_scale = dynamic_mask_scale.clamp_min(1).int()  # 最小值为1，确保至少为1
-#
-#     # 计算需要更新的位置索引
-#     update_indices = torch.nonzero(~mask, as_tuple=False)
-#
-#     # 获取需要更新的值
-#     v = dynamic_mask_scale[update_indices[:, 0], update_indices[:, 1], update_indices[:, 2]]
-#
-#     # 将前 v 个节点设置为 False
-#     expanded_mask = mask.clone()
-#
-#     # Broadcasting to update the mask without a for loop
-#     start_idx = torch.clamp(update_indices[:, 2] - v, min=0).long()
-#     end_idx = torch.min(torch.tensor(seq_length), update_indices[:, 2] + 1 + v).long()
-#
-#     # Create index tensors using torch.arange
-#     index_range = torch.arange(seq_length, device=mask.device).view(1, 1, -1)
-#
-#     # Update the mask using element-wise comparison
-#     mask_update = ~((index_range >= start_idx.view(-1, 1, 1)) & (index_range < end_idx.view(-1, 1, 1)))
-#     unique_indices, inverse_indices = torch.unique(update_indices[:, :2], return_inverse=True, dim=0)
-#
-#     # 初始化结果张量
-#     result_tensor = torch.zeros((batch_size, dim, seq_length), dtype=mask_update.dtype, device=mask.device)
-#
-#
-#     result = torch.zeros((batch_size, dim, seq_length), dtype=mask_update.dtype, device=mask.device)
-#
-#     a = mask_update
-#     result_shape = torch.Size([batch_size, dim, seq_length])
-#     result = torch.ones(result_shape, device='cuda:0', dtype=a.dtype)  # 确保数据类型相同
-#
-#     # 提取前两列作为索引
-#     indices = update_indices[:, :2]
-#
-#     # 计算每一组索引在结果张量中的一维索引
-#     flat_indices = indices[:, 0] * result_shape[1] + indices[:, 1]
-#
-#     # 将对应位置的值相乘累积到结果张量中
-#     result.view(-1, 100).scatter_(0, flat_indices.unsqueeze(1).expand(-1, 100), a.view(-1, 100))
-#
-#     return expanded_mask
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
