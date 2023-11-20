@@ -93,7 +93,7 @@ python main.py --anomaly_ratio <anomaly_ratio> --num_epochs <num_epochs>   --bat
 Table presents a comprehensive performance comparison between our model and other baseline models. The best results are indicated in bold black, while the second-best results are represented with underlines.
 
 <p align="center">
-<img src="./pics/results.png" height = "300" alt="" align=center />
+<img src="./pics/result.png" height = "300" alt="" align=center />
 <br><br>
 <b>Figure 1.</b> Results
 </p>
