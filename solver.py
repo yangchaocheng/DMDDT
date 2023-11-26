@@ -392,12 +392,3 @@ class Solver(object):
             "Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f} ".format(
                 max_accuracy, max_precision,
                 max_recall, max_f_score))
-        average_f_score = np.average(sum_f_score)
-        average_recall = np.average(sum_recall)
-        average_precision = np.average(sum_precision)
-        average_accuracy = np.average(sum_accuracy)
-        print(
-            "Accuracy : {:0.4f}, Precision : {:0.4f}, Recall : {:0.4f}, F-score : {:0.4f} ".format(
-                average_accuracy, average_precision,
-                average_recall, average_f_score))
-
