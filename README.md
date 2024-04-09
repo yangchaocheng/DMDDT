@@ -1,21 +1,8 @@
-# DDTM: Denoising Diffusion Transformer Models for Multivariate Time Series Anomaly Detection
+# DMDDT：Dynamic Mask and Denoising Diffusion Transformer for Time Series Anomaly Detection
 
 
 
-**Abstract:** Anomaly detection in multivariate time series has emerged as a crucial challenge in time
-series research, with significant research implications in various fields such as fraud detection,
-fault diagnosis, and system state estimation. Reconstruction-based models have shown promising potential in recent years for detecting anomalies in time series data. However, due to the
-rapid increase in data scale and dimensionality, the issues of noise and identical shortcut during
-time series reconstruction have become increasingly pronounced. In this context, we propose a
-novel framework for multivariate Time Series Anomaly Detection(TSAD) by introducing the
-novel Neighbor Mask Transformer (NMA) model and integrating it with the Denoising Diffusion Model (DDM). The NMA incorporates a neighborhood mask attention module to prevent
-information leakage during data reconstruction, effectively addressing the identical shortcut
-problem. The Denoising Diffusion Model employs a step-by-step generation process to model
-the probability distribution of time series data, to capture patterns in normal data and progressively restoring time series by eliminating noise, thereby facilitating precise identification
-and recognition of anomalous points. Our proposed model has been thoroughly evaluated
-on five publicly available multivariate TSAD datasets. The experimental results demonstrate
-that the model can effectively identify anomalies in time series data, achieving state-of-the-art
-performance in anomaly detection.
+**Abstract:** Anomaly detection in multivariate time series has emerged as a crucial challenge in time series research, with significant research implications in various fields such as fraud detection, fault diagnosis, and system state estimation. Reconstruction-based models have shown promising potential in recent years for detecting anomalies in time series data. However, due to the rapid increase in data scale and dimensionality, the issues of noise and Weak Identity Mapping (WIM) during time series reconstruction have become increasingly pronounced. To address this, we introduce a novel Adaptive Dynamic Neighbor Mask (ADNM) mechanism and integrate it with the Transformer and Denoising Diffusion Model, creating a new framework for multivariate time series anomaly detection, named Dynamic Mask and Denoising Diffusion Transformer(DMDDT). The ADNM module is introduced to mitigate information leakage between input and output features during data reconstruction, thereby alleviating the problem of WIM during reconstruction. The Denoising Diffusion Transformer (DDT) employs the Transformer as an internal neural network structure for Denoising Diffusion Model. It learns the stepwise generation process of time series data to model the probability distribution of the data, capturing normal data patterns and progressively restoring time series data by removing noise, resulting in a clear recovery of anomalies. To the best of our knowledge, this is the first model that combines Denoising Diffusion Model and the Transformer for multivariate time series anomaly detection. Experimental evaluations were conducted on five publicly available multivariate time series anomaly detection datasets. The results demonstrate that the model effectively identifies anomalies in time series data, achieving state-of-the-art performance in anomaly detection.
 
 ## Requirements
 
