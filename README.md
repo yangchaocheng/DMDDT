@@ -65,7 +65,7 @@ Then you can get the folder tree shown as below:
 ```
 
 ## Usage
-Commands for training and testing FDNet of all datasets are in `./scripts/DDTM.sh`.
+Commands for training and testing of all datasets are in `./scripts/DDTM.sh`.
 
 More parameter information please refer to `main.py`.
 
